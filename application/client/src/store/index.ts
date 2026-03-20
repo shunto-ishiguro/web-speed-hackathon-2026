@@ -1,11 +1,23 @@
 import { combineReducers, legacy_createStore as createStore, Dispatch, UnknownAction } from "redux";
-import { reducer as formReducer, FormAction } from "redux-form";
 
 const rootReducer = combineReducers({
-  form: formReducer,
+  form: (state = {}) => state,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
-export type AppDispatch = Dispatch<UnknownAction | FormAction>;
+export type AppDispatch = Dispatch<UnknownAction>;
 
 export const store = createStore(rootReducer);
+
+let formReducerInjected = false;
+
+export async function injectFormReducer() {
+  if (formReducerInjected) return;
+  formReducerInjected = true;
+  const { reducer: formReducer } = await import("redux-form");
+  store.replaceReducer(
+    combineReducers({
+      form: formReducer,
+    }),
+  );
+}
