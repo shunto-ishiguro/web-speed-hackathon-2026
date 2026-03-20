@@ -27,11 +27,7 @@ export const AppContainer = () => {
   const [activeUser, setActiveUser] = useState<Models.User | null>(null);
   const [isLoadingActiveUser, setIsLoadingActiveUser] = useState(true);
   useEffect(() => {
-    const preloaded = (window as any).__PRELOAD_ME as Promise<Response> | undefined;
-    const promise = preloaded
-      ? preloaded.then((res) => { if (!res.ok) throw new Error(); return res.json() as Promise<Models.User>; })
-      : fetchJSON<Models.User>("/api/v1/me");
-    void promise
+    void fetchJSON<Models.User>("/api/v1/me")
       .then((user) => {
         setActiveUser(user);
       })
