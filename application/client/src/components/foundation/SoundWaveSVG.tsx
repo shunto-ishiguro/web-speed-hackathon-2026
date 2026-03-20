@@ -5,45 +5,38 @@ interface ParsedData {
   peaks: number[];
 }
 
-function mean(arr: (number | undefined)[]): number {
-  let sum = 0;
-  let count = 0;
-  for (const v of arr) {
-    if (v != null) {
-      sum += v;
-      count++;
-    }
-  }
-  return count === 0 ? 0 : sum / count;
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
-  }
-  return result;
-}
-
-// メインスレッドに制御を戻す
 const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
 
 async function calculate(data: ArrayBuffer): Promise<ParsedData> {
   const audioCtx = new AudioContext();
-  const buffer = await audioCtx.decodeAudioData(data.slice(0));
+  // slice(0)を避けてtransferable対応バッファを直接渡す
+  const buffer = await audioCtx.decodeAudioData(data);
 
   await yieldToMain();
-  const leftData = Array.from(buffer.getChannelData(0), Math.abs);
 
-  await yieldToMain();
-  const rightData = Array.from(buffer.getChannelData(1), Math.abs);
+  // Float32Arrayから直接ピーク計算（Array.fromで全変換しない）
+  const left = buffer.getChannelData(0);
+  const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+  const totalSamples = left.length;
+  const bucketSize = Math.ceil(totalSamples / 100);
+  const peaks: number[] = [];
 
-  await yieldToMain();
-  const normalized = leftData.map((v, i) => (v + (rightData[i] ?? 0)) / 2);
-  const chunks = chunk(normalized, Math.ceil(normalized.length / 100));
-  const peaks = chunks.map(mean);
+  for (let i = 0; i < 100; i++) {
+    const start = i * bucketSize;
+    const end = Math.min(start + bucketSize, totalSamples);
+    let sum = 0;
+    for (let j = start; j < end; j++) {
+      sum += (Math.abs(left[j]!) + Math.abs(right[j]!)) / 2;
+    }
+    peaks.push(sum / (end - start));
+
+    // 10バケットごとにyield（メインスレッドに制御を戻す）
+    if (i % 10 === 9) {
+      await yieldToMain();
+    }
+  }
+
   const max = Math.max(...peaks, 0);
-
   await audioCtx.close();
   return { max, peaks };
 }
@@ -60,9 +53,13 @@ export const SoundWaveSVG = ({ soundData }: Props) => {
   });
 
   useEffect(() => {
-    calculate(soundData).then(({ max, peaks }) => {
-      setPeaks({ max, peaks });
+    // requestIdleCallbackで波形計算をアイドル時まで遅延（TTIを先に達成）
+    const id = requestIdleCallback(() => {
+      calculate(soundData).then(({ max, peaks }) => {
+        setPeaks({ max, peaks });
+      });
     });
+    return () => cancelIdleCallback(id);
   }, [soundData]);
 
   return (
