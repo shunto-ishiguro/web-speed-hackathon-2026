@@ -36,7 +36,7 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
     }
 
     try {
-      const conversations = await fetchJSON<Array<Models.DirectMessageConversation>>("/api/v1/dm?limit=30");
+      const conversations = await fetchJSON<Array<Models.DirectMessageConversation>>("/api/v1/dm");
       setConversations(conversations);
       setError(null);
     } catch (error) {
@@ -88,7 +88,7 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
                 : conversation.member;
 
             const lastMessage = messages.at(-1);
-            const hasUnread = messages
+            const hasUnread = (conversation as any).hasUnread ?? messages
               .filter((m) => m.sender.id === peer.id)
               .some((m) => !m.isRead);
 
