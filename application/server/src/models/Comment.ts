@@ -51,7 +51,7 @@ export function initComment(sequelize: Sequelize) {
         include: [
           {
             association: "user",
-            attributes: { exclude: ["profileImageId"] },
+            attributes: { exclude: ["profileImageId", "description"] },
             include: [{ association: "profileImage" }],
           },
         ],
