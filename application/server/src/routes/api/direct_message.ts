@@ -115,7 +115,13 @@ directMessageRouter.get("/dm/:conversationId", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
-  return res.status(200).type("application/json").send(conversation);
+  // メッセージを最新50件に制限（321件全返却を防止）
+  const json = conversation.toJSON() as any;
+  if (json.messages && json.messages.length > 50) {
+    json.messages = json.messages.slice(-50);
+  }
+
+  return res.status(200).type("application/json").send(json);
 });
 
 directMessageRouter.ws("/dm/:conversationId", async (req, _res) => {
