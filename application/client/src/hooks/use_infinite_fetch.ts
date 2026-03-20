@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 const LIMIT = 30;
 
@@ -46,11 +46,14 @@ export function useInfiniteFetch<T>(
 
     void fetcher(paginatedPath).then(
       (pageData) => {
-        setResult((cur) => ({
-          ...cur,
-          data: [...cur.data, ...pageData],
-          isLoading: false,
-        }));
+        // startTransitionでReactがyieldしながらレンダリング → TBT軽減
+        startTransition(() => {
+          setResult((cur) => ({
+            ...cur,
+            data: [...cur.data, ...pageData],
+            isLoading: false,
+          }));
+        });
         internalRef.current = {
           isLoading: false,
           offset: offset + LIMIT,
