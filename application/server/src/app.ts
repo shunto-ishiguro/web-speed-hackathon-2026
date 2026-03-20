@@ -13,7 +13,7 @@ app.set("trust proxy", true);
 app.use(compression());
 
 app.use((req, res, next) => {
-  if (req.path.match(/\.[a-f0-9]{8}\.(js|css|wasm)$/) || req.path.match(/\.(woff2|woff|ttf|otf|webp|svg|gif|mp3|wasm)$/)) {
+  if (req.path.match(/\.[a-zA-Z0-9]{8,}\.(js|css|wasm)$/) || req.path.match(/\.(woff2|woff|ttf|otf|webp|svg|gif|mp3|wasm)$/)) {
     res.header({ "Cache-Control": "public, max-age=31536000, immutable" });
   } else {
     res.header({ "Cache-Control": "no-cache" });
