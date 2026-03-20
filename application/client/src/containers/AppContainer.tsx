@@ -15,7 +15,7 @@ const NotFoundContainer = lazy(() => import("@web-speed-hackathon-2026/client/sr
 const PostContainer = lazy(() => import("@web-speed-hackathon-2026/client/src/containers/PostContainer").then(m => ({ default: m.PostContainer })));
 const SearchContainer = lazy(() => injectFormReducer().then(() => import("@web-speed-hackathon-2026/client/src/containers/SearchContainer")).then(m => ({ default: m.SearchContainer })));
 const TermContainer = lazy(() => import("@web-speed-hackathon-2026/client/src/containers/TermContainer").then(m => ({ default: m.TermContainer })));
-const TimelineContainer = lazy(() => import("@web-speed-hackathon-2026/client/src/containers/TimelineContainer").then(m => ({ default: m.TimelineContainer })));
+const TimelineContainer = lazy(() => import(/* webpackPrefetch: true */ "@web-speed-hackathon-2026/client/src/containers/TimelineContainer").then(m => ({ default: m.TimelineContainer })));
 const UserProfileContainer = lazy(() => import("@web-speed-hackathon-2026/client/src/containers/UserProfileContainer").then(m => ({ default: m.UserProfileContainer })));
 
 export const AppContainer = () => {
