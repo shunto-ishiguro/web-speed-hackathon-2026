@@ -38,7 +38,7 @@ staticRouter.use(async (req, res, next) => {
       user = null;
     }
 
-    const html = renderPage(originalUrl, { user });
+    const html = await renderPage(originalUrl, { user });
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   } catch (e) {

@@ -12,6 +12,16 @@ function getTemplate(): string {
   return templateHtml;
 }
 
+let ssrModule: { render: (url: string, data: any) => Promise<string> } | null = null;
+async function getSSRModule() {
+  if (ssrModule !== null) return ssrModule;
+  const serverDir = path.join(CLIENT_DIST_PATH, "server", "scripts");
+  const entryFile = fs.readdirSync(serverDir).find((f) => f.startsWith("entry-server"));
+  if (!entryFile) throw new Error("SSR entry not found");
+  ssrModule = await import(path.join(serverDir, entryFile));
+  return ssrModule!;
+}
+
 interface SSRData {
   user?: unknown | null;
 }
@@ -21,9 +31,9 @@ const cache = new Map<string, { html: string; timestamp: number }>();
 const CACHE_TTL_MS = 5000;
 
 /**
- * ユーザーデータのみ埋め込み、投稿はfetch preloadに任せる
+ * Vite SSRバンドルでAppContainerをレンダリングし、HTMLに埋め込む
  */
-export function renderPage(url: string, data: SSRData): string {
+export async function renderPage(url: string, data: SSRData): Promise<string> {
   const cacheKey = `${url}:${data.user ? "auth" : "anon"}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -31,10 +41,19 @@ export function renderPage(url: string, data: SSRData): string {
   }
 
   let html = getTemplate();
+  const ssr = await getSSRModule();
 
-  // ユーザーデータがある場合のみ、preloadスクリプトにSSRデータを追加
+  // renderToPipeableStreamで実際のAppContainerをレンダリング
+  const shellHtml = await ssr.render(url, data);
+
+  // シェルHTMLを注入
+  html = html.replace(
+    '<div id="app"></div>',
+    `<div id="app">${shellHtml}</div>`,
+  );
+
+  // preload fetchスクリプトにSSRユーザーデータを追加
   if (data.user !== undefined) {
-    // 元のpreload fetchは残しつつ、ユーザーデータだけ埋め込む
     const userScript = `window.__SSR_USER__=${safeJSON(data.user)};`;
     html = html.replace(
       /<script>window\.__PRELOAD_ME/,

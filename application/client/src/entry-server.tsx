@@ -1,36 +1,47 @@
-import { renderToString } from "react-dom/server";
+import { PassThrough } from "node:stream";
+
+import { renderToPipeableStream } from "react-dom/server";
+import { Provider } from "react-redux";
 import { StaticRouter } from "react-router";
 
-import { AppPage } from "@web-speed-hackathon-2026/client/src/components/application/AppPage";
-import { Timeline } from "@web-speed-hackathon-2026/client/src/components/timeline/Timeline";
-import { TimelinePage } from "@web-speed-hackathon-2026/client/src/components/timeline/TimelinePage";
+import { AppContainer } from "@web-speed-hackathon-2026/client/src/containers/AppContainer";
+import { store } from "@web-speed-hackathon-2026/client/src/store";
 
 interface SSRData {
-  posts?: Models.Post[];
   user?: Models.User | null;
 }
 
-const SSR_RENDER_LIMIT = 10;
+/**
+ * renderToPipeableStreamで実際のAppContainerをレンダリング
+ * → hydrateRootでのhydrationが完全一致
+ */
+export function render(url: string, data: SSRData): Promise<string> {
+  // グローバル変数にSSRデータをセット（AppContainerが読み取る）
+  (globalThis as any).__SSR_USER__ = data.user ?? null;
 
-export function render(url: string, data: SSRData): { html: string; renderLimit: number } {
-  const noop = () => {};
-  const isHome = url === "/" || url === "/index.html";
-
-  // 実際のクライアントコンポーネントでレンダリング → hydration完全一致
-  const html = renderToString(
-    <StaticRouter location={url}>
-      <AppPage
-        activeUser={data.user ?? null}
-        authModalId=":ssr-auth:"
-        newPostModalId=":ssr-newpost:"
-        onLogout={noop}
-      >
-        {isHome && data.posts && data.posts.length > 0 ? (
-          <TimelinePage timeline={data.posts.slice(0, SSR_RENDER_LIMIT)} />
-        ) : null}
-      </AppPage>
-    </StaticRouter>,
-  );
-
-  return { html, renderLimit: SSR_RENDER_LIMIT };
+  return new Promise<string>((resolve, reject) => {
+    let html = "";
+    const { pipe } = renderToPipeableStream(
+      <Provider store={store}>
+        <StaticRouter location={url}>
+          <AppContainer />
+        </StaticRouter>
+      </Provider>,
+      {
+        onShellReady() {
+          // シェル（Suspense外の部分）が準備完了
+          const stream = new PassThrough();
+          stream.on("data", (chunk: Buffer) => {
+            html += chunk.toString();
+          });
+          stream.on("end", () => resolve(html));
+          pipe(stream);
+        },
+        onError(err) {
+          console.error("SSR stream error:", err);
+          reject(err);
+        },
+      },
+    );
+  });
 }
