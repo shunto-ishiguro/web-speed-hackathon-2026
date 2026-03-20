@@ -1,5 +1,6 @@
 import "./index.css";
 import "./buildinfo";
+import "./polyfills/invoker-command";
 
 import { hydrateRoot } from "react-dom/client";
 import { startTransition } from "react";
