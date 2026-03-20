@@ -36,7 +36,7 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
     }
 
     try {
-      const conversations = await fetchJSON<Array<Models.DirectMessageConversation>>("/api/v1/dm");
+      const conversations = await fetchJSON<Array<Models.DirectMessageConversation>>("/api/v1/dm?limit=30");
       setConversations(conversations);
       setError(null);
     } catch (error) {

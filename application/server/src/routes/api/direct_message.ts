@@ -16,6 +16,9 @@ directMessageRouter.get("/dm", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
+  const limit = req.query["limit"] != null ? Number(req.query["limit"]) : undefined;
+  const offset = req.query["offset"] != null ? Number(req.query["offset"]) : undefined;
+
   const conversations = await DirectMessageConversation.findAll({
     where: {
       [Op.and]: [
@@ -24,6 +27,8 @@ directMessageRouter.get("/dm", async (req, res) => {
       ],
     },
     order: [[col("messages.createdAt"), "DESC"]],
+    limit,
+    offset,
   });
 
   const sorted = conversations.map((c) => ({
