@@ -3,10 +3,8 @@ import path from "node:path";
 
 import { CLIENT_DIST_PATH } from "@web-speed-hackathon-2026/server/src/paths";
 
-// ビルド済みファイルをキャッシュ
+// ビルド済みテンプレートをキャッシュ
 let templateHtml: string | null = null;
-let ssrModule: { render: (url: string, data: any) => { html: string; renderLimit: number } } | null = null;
-
 function getTemplate(): string {
   if (templateHtml !== null) return templateHtml;
   const indexPath = path.join(CLIENT_DIST_PATH, "index.html");
@@ -14,80 +12,56 @@ function getTemplate(): string {
   return templateHtml;
 }
 
-
-async function getSSRModule() {
-  if (ssrModule !== null) return ssrModule;
-  const serverDir = path.join(CLIENT_DIST_PATH, "server", "scripts");
-  const entryFile = fs.readdirSync(serverDir).find((f) => f.startsWith("entry-server"));
-  if (!entryFile) throw new Error("SSR entry not found");
-  ssrModule = await import(path.join(serverDir, entryFile));
-  return ssrModule!;
-}
-
 interface SSRData {
   posts?: unknown[];
   user?: unknown | null;
 }
 
-// SSRレスポンスキャッシュ
-const ssrCache = new Map<string, { html: string; timestamp: number }>();
+const SSR_RENDER_LIMIT = 10;
+
+// レスポンスキャッシュ
+const cache = new Map<string, { html: string; timestamp: number }>();
 const CACHE_TTL_MS = 5000;
 
 /**
- * ViteのSSRバンドルを使ってレンダリングし、データを埋め込んだHTMLを返す
+ * データを埋め込んだHTMLを返す（HTML描画はクライアントに任せる）
  */
-export async function renderAppShell(url: string, data: SSRData): Promise<string> {
-  // キャッシュチェック
-  const cached = ssrCache.get(url);
+export function renderPage(url: string, data: SSRData): string {
+  const cached = cache.get(url);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.html;
   }
 
-  const template = getTemplate();
-  const ssr = await getSSRModule();
-
-  // Vite SSRバンドルで実際のクライアントコンポーネントをレンダリング
-  const { html: shellHtml, renderLimit } = ssr.render(url, data);
-
-  // データ埋め込み用のスクリプトタグ
-  const dataScript = buildDataScript(data, renderLimit);
-
-  // テンプレートにシェルHTMLとデータを注入
-  let html = template.replace(
-    '<div id="app"></div>',
-    `<div id="app">${shellHtml}</div>`,
-  );
+  let html = getTemplate();
 
   // preloadスクリプトをSSRデータスクリプトに置き換え
+  const dataScript = buildDataScript(data);
   html = html.replace(
     /<script>window\.__PRELOAD_ME.*?<\/script>/,
     dataScript,
   );
 
-  // フォントpreload（CSS解析前にフォント取得を開始）
+  // フォントpreload
   const fontPreloads = [
     '<link rel="preload" as="font" type="font/woff2" href="/fonts/ReiNoAreMincho-Regular.woff2" crossorigin>',
     '<link rel="preload" as="font" type="font/woff2" href="/fonts/ReiNoAreMincho-Heavy.woff2" crossorigin>',
   ].join("");
   html = html.replace("</head>", `${fontPreloads}</head>`);
 
-  // キャッシュに保存
-  ssrCache.set(url, { html, timestamp: Date.now() });
-
+  cache.set(url, { html, timestamp: Date.now() });
   return html;
 }
 
-// JSON内の </script> をエスケープしてXSSを防止
 function safeJSON(obj: unknown): string {
   return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }
 
-function buildDataScript(data: SSRData, renderLimit: number): string {
+function buildDataScript(data: SSRData): string {
   const parts: string[] = [];
 
   if (data.posts !== undefined) {
     parts.push(`window.__SSR_POSTS__=${safeJSON(data.posts)}`);
-    parts.push(`window.__SSR_RENDER_LIMIT__=${renderLimit}`);
+    parts.push(`window.__SSR_RENDER_LIMIT__=${SSR_RENDER_LIMIT}`);
   }
 
   if (data.user !== undefined) {

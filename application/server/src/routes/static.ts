@@ -9,7 +9,7 @@ import {
   UPLOAD_PATH,
 } from "@web-speed-hackathon-2026/server/src/paths";
 import { sessionMiddleware } from "@web-speed-hackathon-2026/server/src/session";
-import { renderAppShell } from "@web-speed-hackathon-2026/server/src/ssr/render";
+import { renderPage } from "@web-speed-hackathon-2026/server/src/ssr/render";
 
 export const staticRouter = Router();
 
@@ -48,7 +48,7 @@ staticRouter.use(async (req, res, next) => {
       user = null;
     }
 
-    const html = await renderAppShell(originalUrl, { posts, user });
+    const html = renderPage(originalUrl, { posts, user });
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   } catch (e) {
