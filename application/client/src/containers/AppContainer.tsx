@@ -28,10 +28,15 @@ export const AppContainer = () => {
   const [activeUser, setActiveUser] = useState<Models.User | null>(null);
   const [isLoadingActiveUser, setIsLoadingActiveUser] = useState(true);
   useEffect(() => {
-    void fetchJSON<Models.User>("/api/v1/me")
+    const preloaded = (window as any).__PRELOAD_ME as Promise<Response> | undefined;
+    const promise = preloaded
+      ? preloaded.then((res) => { if (!res.ok) throw new Error(); return res.json() as Promise<Models.User>; })
+      : fetchJSON<Models.User>("/api/v1/me");
+    void promise
       .then((user) => {
         setActiveUser(user);
       })
+      .catch(() => {})
       .finally(() => {
         setIsLoadingActiveUser(false);
       });
@@ -45,11 +50,7 @@ export const AppContainer = () => {
   const authModalId = useId();
   const newPostModalId = useId();
 
-  useTitle(isLoadingActiveUser ? "読込中 - CaX" : "CaX");
-
-  if (isLoadingActiveUser) {
-    return null;
-  }
+  useTitle("CaX");
 
   return (
     <>
@@ -60,7 +61,7 @@ export const AppContainer = () => {
         onLogout={handleLogout}
       >
         <Suspense fallback={null}>
-        <Routes>
+        {!isLoadingActiveUser && <Routes>
           <Route element={<TimelineContainer />} path="/" />
           <Route
             element={
@@ -81,7 +82,7 @@ export const AppContainer = () => {
             path="/crok"
           />
           <Route element={<NotFoundContainer />} path="*" />
-        </Routes>
+        </Routes>}
         </Suspense>
       </AppPage>
 
