@@ -20,12 +20,12 @@ export async function convertImage(file: File, options: Options): Promise<Conver
   return new Promise((resolve, reject) => {
     try {
       ImageMagick.read(byteArray, (img) => {
-        const comment = img.comment ?? "";
+        const alt = img.getAttribute("exif:ImageDescription") ?? "";
 
         img.format = options.extension;
 
         img.write((output) => {
-          resolve({ blob: new Blob([output as Uint8Array<ArrayBuffer>]), alt: comment });
+          resolve({ blob: new Blob([output as Uint8Array<ArrayBuffer>]), alt });
         });
       });
     } catch (err) {
