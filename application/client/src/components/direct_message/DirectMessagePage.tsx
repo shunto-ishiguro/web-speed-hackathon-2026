@@ -118,7 +118,7 @@ export const DirectMessagePage = ({
     const isActiveUserSend = message.sender.id === activeUser.id;
 
     return (
-      <div style={style} className="px-4">
+      <li style={style} className="px-4 list-none">
         <div
           className={classNames(
             "flex flex-col w-full py-1.5",
@@ -144,7 +144,7 @@ export const DirectMessagePage = ({
             )}
           </div>
         </div>
-      </div>
+      </li>
     );
   }, [messages, activeUser.id]);
 
